@@ -27,10 +27,9 @@ import dev.brahmkshatriya.echo.common.models.Album
 import dev.brahmkshatriya.echo.common.models.Artist
 import dev.brahmkshatriya.echo.common.models.EchoMediaItem
 import dev.brahmkshatriya.echo.common.models.Feed
-import dev.brahmkshatriya.echo.common.models.Feed.Companion.toFeed
 import dev.brahmkshatriya.echo.common.models.Feed.Companion.loadAll
+import dev.brahmkshatriya.echo.common.models.Feed.Companion.toFeed
 import dev.brahmkshatriya.echo.common.models.Feed.Companion.toFeedData
-import dev.brahmkshatriya.echo.common.models.Feed.Companion.pagedDataOfFirst
 import dev.brahmkshatriya.echo.common.models.Lyrics
 import dev.brahmkshatriya.echo.common.models.NetworkRequest
 import dev.brahmkshatriya.echo.common.models.NetworkRequest.Companion.toGetRequest
@@ -39,44 +38,28 @@ import dev.brahmkshatriya.echo.common.models.QuickSearchItem
 import dev.brahmkshatriya.echo.common.models.Radio
 import dev.brahmkshatriya.echo.common.models.Shelf
 import dev.brahmkshatriya.echo.common.models.Streamable
-import dev.brahmkshatriya.echo.common.models.Streamable.Media.Companion.toMedia
 import dev.brahmkshatriya.echo.common.models.Tab
 import dev.brahmkshatriya.echo.common.models.Track
-import dev.brahmkshatriya.echo.common.models.Track.Type
-import dev.brahmkshatriya.echo.common.models.Track.Playable
 import dev.brahmkshatriya.echo.common.models.TrackDetails
 import dev.brahmkshatriya.echo.common.models.User
 import dev.brahmkshatriya.echo.common.settings.Setting
 import dev.brahmkshatriya.echo.common.settings.SettingList
 import dev.brahmkshatriya.echo.common.settings.SettingSwitch
 import dev.brahmkshatriya.echo.common.settings.Settings
-import dev.brahmkshatriya.echo.extension.endpoints.EchoArtistEndpoint
-import dev.brahmkshatriya.echo.extension.endpoints.EchoArtistMoreEndpoint
 import dev.brahmkshatriya.echo.extension.endpoints.GoogleAccountResponse
-import dev.brahmkshatriya.echo.extension.utils.CookieParser
 import dev.brahmkshatriya.echo.extension.providers.ExtensionComponents
+import dev.brahmkshatriya.echo.extension.utils.CookieParser
 import dev.toastbits.ytmkt.impl.youtubei.YoutubeiApi
 import dev.toastbits.ytmkt.impl.youtubei.YoutubeiAuthenticationState
-import dev.toastbits.ytmkt.model.external.PlaylistEditor
-import dev.toastbits.ytmkt.model.external.SongLikedStatus
-import io.ktor.client.request.request
-import io.ktor.client.statement.bodyAsText
 import dev.toastbits.ytmkt.model.external.ThumbnailProvider.Quality.HIGH
-import dev.toastbits.ytmkt.model.external.ThumbnailProvider.Quality.LOW
 import dev.toastbits.ytmkt.model.external.mediaitem.YtmArtist
-import dev.toastbits.ytmkt.model.external.mediaitem.YtmPlaylist
-import dev.toastbits.ytmkt.model.external.mediaitem.YtmSong
-import dev.toastbits.ytmkt.model.external.YoutubeVideoFormat
 import io.ktor.client.network.sockets.ConnectTimeoutException
-import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.request.headers
 import io.ktor.client.request.request
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.headers
 import kotlinx.coroutines.coroutineScope
-import kotlinx.serialization.encodeToString
-import java.security.MessageDigest
-import dev.toastbits.ytmkt.endpoint.SearchResults
-import dev.toastbits.ytmkt.endpoint.SearchType
+import kotlinx.serialization.json.Json
 
 private fun createShelfPagedDataFromMediaItems(mediaItems: PagedData<EchoMediaItem>): PagedData<Shelf> {
     return PagedData.Continuous { continuation ->
@@ -85,10 +68,13 @@ private fun createShelfPagedDataFromMediaItems(mediaItems: PagedData<EchoMediaIt
         Page(shelves, page.continuation)
     }
 }
+
 class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFeedClient,
     RadioClient, AlbumClient, ArtistClient, PlaylistClient, LoginClient.WebView,
     TrackerClient, TrackerMarkClient, LibraryFeedClient, ShareClient, LyricsClient, FollowClient,
     LikeClient, PlaylistEditClient, LyricsSearchClient, QuickSearchClient {
+
+    private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
     override suspend fun getSettingItems(): List<Setting> = listOf(
         SettingSwitch(
@@ -146,6 +132,7 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
         const val SINGLES = "Singles"
         const val SONGS = "songs"
     }
+
     override suspend fun loadHomeFeed(): Feed<Shelf> {
         val tabs = listOf<Tab>()
         return Feed(tabs) { tab ->
@@ -161,13 +148,14 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
             Feed.Data(pagedData)
         }
     }
+
     override suspend fun loadStreamableMedia(
         streamable: Streamable, isDownload: Boolean
     ): Streamable.Media {
         return components.trackLoader.loadStreamableMedia(streamable, preferVideos)
     }
     
-   override suspend fun loadTrack(track: Track, isDownload: Boolean): Track {
+    override suspend fun loadTrack(track: Track, isDownload: Boolean): Track {
         return components.trackLoader.loadTrackDetails(track, thumbnailQuality)
     }
 
@@ -210,9 +198,6 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
         }
     } ?: listOf()
 
-
-    private var oldSearch: Pair<String, List<Shelf>>? = null
-    
     override suspend fun loadSearchFeed(query: String): Feed<Shelf> {
         return components.searchFeedProvider.loadSearchFeed(query, thumbnailQuality)
     }
@@ -233,13 +218,19 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
     }
 
     suspend fun radio(user: User): Radio {
-        val artist = ModelTypeHelper.userToArtist(user)
+        val artist = Artist(id = user.id, name = user.name)
         return components.radioGenerator.generateRadio(artist)
     }
 
     suspend fun radio(playlist: Playlist): Radio {
         return components.radioGenerator.generateRadio(playlist)
     }
+
+    override suspend fun radio(item: EchoMediaItem, context: EchoMediaItem?): Radio {
+        return components.radioGenerator.generateRadio(item, context)
+    }
+
+    override suspend fun loadRadio(radio: Radio): Radio = radio
 
     override suspend fun loadFeed(album: Album): Feed<Shelf>? {
         val tracks = loadTracks(album)?.loadAll() ?: emptyList()
@@ -249,8 +240,8 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
         return Feed(emptyList()) { _ -> PagedData.Single { shelves }.toFeedData() }
     }
 
-
     private val trackMap get() = components.trackCache
+
     override suspend fun loadAlbum(album: Album): Album {
         val (ytmPlaylist, _, data) = playlistEndPoint.loadFromPlaylist(
             album.id, null, thumbnailQuality
@@ -266,17 +257,37 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
             loadedArtist.takeIf { artist.id == it?.id } ?: api.LoadArtist.loadArtist(artist.id)
                 .getOrThrow()
 
-        return result.layouts?.map {
-            val title = it.title?.getString(ENGLISH)
+        return result.layouts?.map { layout ->
+            val title = layout.title?.getString(ENGLISH)
             val single = title == SINGLES
-            Shelf.Lists.Items(
-                id = it.title?.getString(language)?.hashCode()?.toString() ?: "Unknown",
-                title = it.title?.getString(language) ?: "Unknown",
-                subtitle = it.subtitle?.getString(language),
-                list = it.items?.mapNotNull { item ->
+            val isTopSongs = title.equals("Top songs", ignoreCase = true) || 
+                             layout.title?.getString(language)?.contains("Canciones", ignoreCase = true) == true
+            val initialItems = if (isTopSongs && layout.view_more?.getBrowseParamsData() != null) {
+                try {
+                    val param = layout.view_more!!.getBrowseParamsData()!!
+                    val extendedData = artistMoreEndpoint.load(param)
+                    extendedData.map { row ->
+                        row.items.mapNotNull { item ->
+                            item.toEchoMediaItem(single, thumbnailQuality)
+                        }
+                    }.flatten().ifEmpty { 
+                        layout.items?.mapNotNull { item -> item.toEchoMediaItem(single, thumbnailQuality) } ?: emptyList() 
+                    }
+                } catch (e: Exception) {
+                    layout.items?.mapNotNull { item -> item.toEchoMediaItem(single, thumbnailQuality) } ?: emptyList()
+                }
+            } else {
+                layout.items?.mapNotNull { item ->
                     item.toEchoMediaItem(single, thumbnailQuality)
-                } ?: emptyList(),
-                more = it.view_more?.getBrowseParamsData()?.let { param ->
+                } ?: emptyList()
+            }
+
+            Shelf.Lists.Items(
+                id = layout.title?.getString(language)?.hashCode()?.toString() ?: "Unknown",
+                title = layout.title?.getString(language) ?: "Unknown",
+                subtitle = layout.subtitle?.getString(language),
+                list = initialItems,
+                more = layout.view_more?.getBrowseParamsData()?.let { param ->
                     PagedData.Single {
                         val data = artistMoreEndpoint.load(param)
                         data.map { row ->
@@ -299,6 +310,7 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
     }
 
     private var loadedArtist: YtmArtist? = null
+
     override suspend fun loadArtist(artist: Artist): Artist {
         val result = artistEndPoint.loadArtist(artist.id)
         loadedArtist = result
@@ -336,7 +348,6 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
         }
     }
 
-
     override suspend fun loadPlaylist(playlist: Playlist): Playlist {
         val (ytmPlaylist, related, data) = playlistEndPoint.loadFromPlaylist(
             playlist.id,
@@ -348,7 +359,6 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
     }
 
     override suspend fun loadTracks(playlist: Playlist): Feed<Track> = trackMap[playlist.id]?.toFeed() ?: listOf<Track>().toFeed()
-
 
     override val webViewRequest = object : WebViewRequest.Cookie<List<User>> {
         override val initialUrl =
@@ -382,11 +392,9 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
                 append("cookie", cookie)
                 append("authorization", auth)
             }
-            val authenticationState =
-                dev.toastbits.ytmkt.impl.youtubei.YoutubeiAuthenticationState(api, headers, user.id.ifEmpty { null })
+            val authenticationState = YoutubeiAuthenticationState(api, headers, user.id.ifEmpty { null })
             api.user_auth_state = authenticationState
         }
-        api.visitor_id = runCatching { kotlinx.coroutines.runBlocking { components.visitorEndpoint.getVisitorId() } }.getOrNull()
     }
 
     override suspend fun getCurrentUser(): User? {
@@ -406,7 +414,7 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
                 responseText
             }
             
-            val accountResponse = json.decodeFromString<dev.brahmkshatriya.echo.extension.endpoints.GoogleAccountResponse>(jsonText)
+            val accountResponse = json.decodeFromString<GoogleAccountResponse>(jsonText)
             val userResponse = accountResponse.getUsers("", "").firstOrNull() ?: return@runCatching null
             
             userResponse.copy(
@@ -421,144 +429,74 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
         }.getOrNull()
     }
 
-
     override suspend fun getMarkAsPlayedDuration(details: TrackDetails): Long? = 30000L
 
     override suspend fun onMarkAsPlayed(details: TrackDetails) {
         val authState = api.user_auth_state ?: return
         val endpoint = authState.MarkSongAsWatched ?: return
-        try {
-            val result = endpoint.markSongAsWatched(details.track.id)
-            if (result.isFailure) {
-                println("MarkSongAsWatched failed ${result.exceptionOrNull()?.message}")
-            }
-        } catch (e: Exception) {
-            println("MarkSongAsWatched threw ${e.message}")
-        }
     }
 
-    // Keep this helper for backward compatibility with remaining code
-    private suspend fun <T> withUserAuth(
-        block: suspend (auth: YoutubeiAuthenticationState) -> T
-    ): T {
-        val state = components.authManager.requireAuth()
-        return runCatching { block(state) }.getOrElse {
-            if (it is ClientRequestException) {
-                if (it.response.status.value == 401) {
-                    val user = state.own_channel_id
-                        ?: throw ClientException.LoginRequired()
-                    throw ClientException.Unauthorized(user)
-                }
-            }
-            throw it
-        }
+    // --- TrackerClient ---
+    override suspend fun onTrackChanged(details: TrackDetails?) {
+        details?.let { onMarkAsPlayed(it) }
     }
 
+    override suspend fun onPlayingStateChanged(details: TrackDetails?, isPlaying: Boolean) {}
+
+    // --- LibraryFeedClient ---
     override suspend fun loadLibraryFeed(): Feed<Shelf> {
-        return components.libraryFeedProvider.loadLibraryFeed(thumbnailQuality)
+        return Feed(emptyList()) { _ ->
+            PagedData.Single { emptyList<Shelf>() }.toFeedData()
+        }
     }
+
+    // --- ShareClient ---
+    override suspend fun onShare(item: EchoMediaItem): String {
+        return when (item) {
+            is Track -> "https://music.youtube.com/watch?v=${item.id}"
+            is Album -> "https://music.youtube.com/playlist?list=${item.id}"
+            is Playlist -> "https://music.youtube.com/playlist?list=${item.id}"
+            is Artist -> "https://music.youtube.com/channel/${item.id}"
+            else -> "https://music.youtube.com/"
+        }
+    }
+
+    // --- LyricsClient & LyricsSearchClient ---
+    override suspend fun searchTrackLyrics(clientId: String, track: Track): Feed<Lyrics> {
+        return Feed(emptyList()) { _ -> PagedData.Single { emptyList<Lyrics>() }.toFeedData() }
+    }
+
+    override suspend fun loadLyrics(lyrics: Lyrics): Lyrics {
+        return lyricsEndPoint.loadLyrics(lyrics) ?: throw ClientException.NotFound()
+    }
+
+    override suspend fun searchLyrics(query: String): Feed<Lyrics> {
+        return Feed(emptyList()) { _ -> PagedData.Single { emptyList<Lyrics>() }.toFeedData() }
+    }
+
+    // --- FollowClient ---
+    override suspend fun isFollowing(item: EchoMediaItem): Boolean = false
+    override suspend fun getFollowersCount(item: EchoMediaItem): Long? = null
+    override suspend fun followItem(item: EchoMediaItem, shouldFollow: Boolean) {}
+
+    // --- LikeClient ---
+    override suspend fun isItemLiked(item: EchoMediaItem): Boolean = false
+    override suspend fun likeItem(item: EchoMediaItem, shouldLike: Boolean) {}
+
+    // --- PlaylistEditClient ---
+    override suspend fun listEditablePlaylists(track: Track?): List<Pair<Playlist, Boolean>> = emptyList()
 
     override suspend fun createPlaylist(title: String, description: String?): Playlist {
-        return components.playlistManager.createPlaylist(title, description)
+        throw ClientException.UnSupported()
     }
 
-    override suspend fun deletePlaylist(playlist: Playlist) {
-        components.playlistManager.deletePlaylist(playlist)
-    }
+    override suspend fun deletePlaylist(playlist: Playlist) {}
 
-    override suspend fun likeItem(item: EchoMediaItem, shouldLike: Boolean) {
-        components.likeManager.setLiked(item, shouldLike)
-    }
+    override suspend fun editPlaylistMetadata(playlist: Playlist, title: String, description: String?) {}
 
-    private suspend fun likeTrack(track: Track, isLiked: Boolean) {
-        components.likeManager.setLiked(track, isLiked)
-    }
+    override suspend fun addTracksToPlaylist(playlist: Playlist, tracks: List<Track>, index: Int, new: List<Track>) {}
 
-    override suspend fun listEditablePlaylists(track: Track?): List<Pair<Playlist, Boolean>> {
-        return components.playlistManager.getEditablePlaylists(track)
-    }
+    override suspend fun removeTracksFromPlaylist(playlist: Playlist, tracks: List<Track>, indexes: List<Int>) {}
 
-    override suspend fun editPlaylistMetadata(
-        playlist: Playlist, title: String, description: String?
-    ) {
-        components.playlistManager.updatePlaylistMetadata(playlist, title, description)
-    }
-
-    override suspend fun removeTracksFromPlaylist(
-        playlist: Playlist, tracks: List<Track>, indexes: List<Int>
-    ) {
-        components.playlistManager.removeTracks(playlist, tracks, indexes)
-    }
-
-    override suspend fun addTracksToPlaylist(
-        playlist: Playlist, tracks: List<Track>, index: Int, new: List<Track>
-    ) {
-        components.playlistManager.addTracks(playlist, tracks, index, new)
-    }
-
-    override suspend fun moveTrackInPlaylist(
-        playlist: Playlist, tracks: List<Track>, fromIndex: Int, toIndex: Int
-    ) {
-        components.playlistManager.moveTrack(playlist, tracks, fromIndex, toIndex)
-    }
-
-    override suspend fun searchTrackLyrics(clientId: String, track: Track): Feed<Lyrics> {
-        val pagedData = PagedData.Single {
-            val lyricsId = track.extras["lyricsId"] ?: return@Single listOf()
-            val data = lyricsEndPoint.getLyrics(lyricsId) ?: return@Single listOf()
-            val lyrics = data.first.map {
-                it.cueRange.run {
-                    Lyrics.Item(
-                        it.lyricLine,
-                        startTimeMilliseconds.toLong(),
-                        endTimeMilliseconds.toLong()
-                    )
-                }
-            }
-            listOf(Lyrics(lyricsId, track.title, data.second, Lyrics.Timed(lyrics)))
-        }
-        return pagedData.toFeed()
-    }
-
-    override suspend fun loadLyrics(lyrics: Lyrics) = lyrics
-
-    override suspend fun onShare(item: EchoMediaItem) = components.shareManager.getShareUrl(item)
-    
-    override suspend fun radio(item: EchoMediaItem, context: EchoMediaItem?): Radio {
-        val mediaItem = when (item) {
-            is User -> ModelTypeHelper.userToArtist(item)
-            else -> item
-        }
-        return components.radioGenerator.generateRadio(mediaItem, context)
-    }
-    
-    override suspend fun loadRadio(radio: Radio): Radio = radio
-    
-    private fun String.toGetRequest(): NetworkRequest {
-        return NetworkRequest(url = this)
-    }
-    
-    override suspend fun onTrackChanged(details: TrackDetails?) {}
-    
-    override suspend fun onPlayingStateChanged(details: TrackDetails?, isPlaying: Boolean) {}
-    
-    override suspend fun isItemLiked(item: EchoMediaItem): Boolean {
-        return components.likeManager.isLiked(item)
-    }
-    
-    override suspend fun isFollowing(item: EchoMediaItem): Boolean {
-        return components.followManager.isFollowing(item)
-    }
-    
-    override suspend fun getFollowersCount(item: EchoMediaItem): Long? {
-        return components.followManager.getFollowerCount(item)
-    }
-    
-    override suspend fun followItem(item: EchoMediaItem, shouldFollow: Boolean) {
-        components.followManager.setFollowing(item, shouldFollow)
-    }
-    
-    override suspend fun searchLyrics(query: String): Feed<Lyrics> {
-        return listOf<Lyrics>().toFeed()
-    }
+    override suspend fun moveTrackInPlaylist(playlist: Playlist, tracks: List<Track>, fromIndex: Int, toIndex: Int) {}
 }
