@@ -8,7 +8,7 @@ import org.junit.Test
 /**
  * Live diagnostic: prints how ytm-kt parses artist names for search results,
  * album tracks and song loads. Run with:
- *   ./gradlew :ext:test --tests "ArtistNameDiagnostic"
+ *   ./gradlew :ext:test -PincludeDiagnostics --tests "*ArtistNameDiagnostic"
  */
 class ArtistNameDiagnostic {
 

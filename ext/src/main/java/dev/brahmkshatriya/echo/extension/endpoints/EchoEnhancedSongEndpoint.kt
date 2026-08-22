@@ -103,17 +103,22 @@ class EchoEnhancedSongEndpoint(
     }
     
     /**
-     * Pick the first artist list that contains at least one real (non-blank, non-"Unknown") name.
+     * Pick the first artist list where EVERY entry has a real (non-blank, non-"Unknown") name.
      * ytm-kt 0.6.x returns artists with a channel id but NULL name; Convertors renders
      * those as the literal string "Unknown", so treat that as missing.
      */
-    private fun pickBestArtists(vararg candidates: List<dev.brahmkshatriya.echo.common.models.Artist>?): List<dev.brahmkshatriya.echo.common.models.Artist> {
-        for (candidate in candidates) {
-            if (candidate != null && candidate.any { !it.name.isNullOrBlank() && !it.name.equals("unknown", ignoreCase = true) }) {
-                return candidate
+    companion object {
+        fun isValidArtistName(artist: dev.brahmkshatriya.echo.common.models.Artist): Boolean =
+            !artist.name.isNullOrBlank() && !artist.name.equals("unknown", ignoreCase = true)
+
+        fun pickBestArtists(vararg candidates: List<dev.brahmkshatriya.echo.common.models.Artist>?): List<dev.brahmkshatriya.echo.common.models.Artist> {
+            for (candidate in candidates) {
+                if (!candidate.isNullOrEmpty() && candidate.all { isValidArtistName(it) }) {
+                    return candidate
+                }
             }
+            return candidates.filterNotNull().firstOrNull { it.isNotEmpty() } ?: emptyList()
         }
-        return candidates.filterNotNull().firstOrNull { it.isNotEmpty() } ?: emptyList()
     }
 
     /**

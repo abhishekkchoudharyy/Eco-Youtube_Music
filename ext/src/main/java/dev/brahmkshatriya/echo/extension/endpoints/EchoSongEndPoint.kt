@@ -64,8 +64,8 @@ open class EchoSongEndPoint(override val api: YoutubeiApi) : ApiEndpoint() {
 
         val video: YoutubeiNextResponse.PlaylistPanelVideoRenderer =
             tabs.firstNotNullOfOrNull { it.tabRenderer.content?.musicQueueRenderer?.content?.playlistPanelRenderer?.contents }
-                ?.firstNotNullOfOrNull { it.playlistPanelVideoRenderer }
-                ?: throw Exception("No playlistPanelVideoRenderer in next response")
+                ?.firstNotNullOfOrNull { item -> runCatching { item.getRenderer() }.getOrNull() }
+                ?: throw Exception("No playlistPanelVideoRenderer or playlistPanelVideoWrapperRenderer in next response")
 
         val title: String = video.title.first_text
         val isLiked =
@@ -261,7 +261,7 @@ data class YoutubeiNextResponse(
         val playlistPanelVideoRenderer: PlaylistPanelVideoRenderer?,
         val playlistPanelVideoWrapperRenderer: PlaylistPanelVideoWrapperRenderer?
     ) {
-        private fun getRenderer(): PlaylistPanelVideoRenderer {
+        fun getRenderer(): PlaylistPanelVideoRenderer {
             if (playlistPanelVideoRenderer != null) {
                 return playlistPanelVideoRenderer
             }

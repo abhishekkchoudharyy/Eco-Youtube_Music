@@ -41,7 +41,7 @@ class HomeFeedProvider(
                     ).getOrThrow()
                     
                     val data = result.layouts.map { itemLayout ->
-                        itemLayout.toShelf(api, YoutubeExtension.SINGLES, thumbnailQuality)
+                        itemLayout.toShelf(api, thumbnailQuality)
                     }
                     
                     Page(data, result.ctoken)

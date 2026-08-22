@@ -104,6 +104,16 @@ tasks {
     // Enable test tasks now that we have proper implementations
     test {
         enabled = true
+        // Live-network diagnostics hit YouTube directly and only print failures,
+        // so keep them out of the default test run. Opt in with:
+        //   ./gradlew :ext:test -PincludeDiagnostics
+        if (!providers.gradleProperty("includeDiagnostics").isPresent) {
+            filter {
+                excludeTestsMatching("*ArtistNameDiagnostic")
+                excludeTestsMatching("*PlaybackFlowDiagnostic")
+                isFailOnNoMatchingTests = false
+            }
+        }
     }
 
     compileTestKotlin {

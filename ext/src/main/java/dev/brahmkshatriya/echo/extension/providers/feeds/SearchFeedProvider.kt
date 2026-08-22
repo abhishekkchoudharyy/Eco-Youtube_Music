@@ -79,7 +79,7 @@ class SearchFeedProvider(
                     ).getOrThrow()
 
                     val data = browseResult.layouts.map { itemLayout ->
-                        itemLayout.toShelf(api, YoutubeExtension.SINGLES, thumbnailQuality)
+                        itemLayout.toShelf(api, thumbnailQuality)
                     }
 
                     Page(data, browseResult.ctoken)

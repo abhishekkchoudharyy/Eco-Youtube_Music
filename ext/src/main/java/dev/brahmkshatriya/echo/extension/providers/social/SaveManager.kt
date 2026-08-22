@@ -38,7 +38,10 @@ class SaveManager(
                 val status = runCatching {
                     auth.SongLiked.getSongLiked(item.id).getOrNull()
                 }.getOrNull()
-                status == SongLikedStatus.LIKED || item.extras["isLiked"]?.toBoolean() == true
+                // Trust the remote status when available; the cached extra is only
+                // a fallback so a stale "isLiked" cannot override a fresh NEUTRAL.
+                status?.let { it == SongLikedStatus.LIKED }
+                    ?: (item.extras["isLiked"]?.toBoolean() == true)
             }
             else -> false
         }
@@ -55,16 +58,14 @@ class SaveManager(
             is Album -> {
                 val (_, _, tracksData) = playlistEndpoint.loadFromPlaylist(item.id, null, thumbnailQuality)
                 val tracks = tracksData.toFeed().loadAll()
-                var succeeded = 0
                 val failed = mutableListOf<String>()
                 tracks.forEach { track ->
                     runCatching {
                         auth.SetSongLiked.setSongLiked(track.id, likeStatus).getOrThrow()
-                        succeeded++
                     }.onFailure { failed.add(track.title) }
                 }
-                if (succeeded == 0 && failed.isNotEmpty()) {
-                    throw Exception("Failed to save album; first error: ${failed.first()}")
+                if (failed.isNotEmpty()) {
+                    throw Exception("Failed to update album tracks: ${failed.joinToString()}")
                 }
             }
             else -> throw Exception("Saving ${item::class.simpleName} is not supported")

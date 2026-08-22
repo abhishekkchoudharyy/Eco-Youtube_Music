@@ -9,7 +9,7 @@ import org.junit.Test
 
 /**
  * Reproduces the full playback flow: shelf-like track -> loadEnhancedTrack.
- * Run: ./gradlew :ext:test --tests "*.PlaybackFlowDiagnostic"
+ * Run: ./gradlew :ext:test -PincludeDiagnostics --tests "*PlaybackFlowDiagnostic"
  */
 class PlaybackFlowDiagnostic {
 

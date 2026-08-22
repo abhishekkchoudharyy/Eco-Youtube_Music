@@ -41,15 +41,17 @@ fun String.containsTimestamp(): Boolean {
 
 suspend fun MediaItemLayout.toShelf(
     api: YoutubeiApi,
-    language: String,
     quality: ThumbnailProvider.Quality
 ): Shelf {
+    // Localized fields must use the API's data locale. The SINGLES constant is
+    // an English label and is only used for the single-release comparison.
+    val locale = api.dataLocale
     val single = title?.get(Locale.parse(ENGLISH)) == SINGLES
     return try {
         Shelf.Lists.Items(
-            id = title?.get(Locale.parse(language))?.hashCode()?.toString() ?: "Unknown",
-            title = title?.get(Locale.parse(language)) ?: "Unknown",
-            subtitle = subtitle?.get(Locale.parse(language)),
+            id = title?.get(locale)?.hashCode()?.toString() ?: "Unknown",
+            title = title?.get(locale) ?: "Unknown",
+            subtitle = subtitle?.get(locale),
             list = items.mapNotNull { item ->
                 try {
                     item.toEchoMediaItem(single, quality)

@@ -126,8 +126,6 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
         dataLocale = Locale.parse(ENGLISH)
     )
 
-    private val language = ENGLISH
-    
     private lateinit var components: ExtensionComponents
     
     private val artistEndPoint by lazy { components.artistEndpoint }
@@ -157,7 +155,7 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
                     params = tab?.id, continuation = continuation
                 ).getOrThrow()
                 val data = result.layouts.map { itemLayout ->
-                    itemLayout.toShelf(api, SINGLES, thumbnailQuality)
+                    itemLayout.toShelf(api, thumbnailQuality)
                 }
                 Page(data, result.ctoken)
             }
@@ -179,7 +177,7 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
         return if (relatedId != null) {
             try {
                 songFeedEndPoint.getSongFeed(browseId = relatedId).getOrThrow().layouts.map {
-                    it.toShelf(api, SINGLES, thumbnailQuality)
+                    it.toShelf(api, thumbnailQuality)
                 }
             } catch (e: Exception) {
                 emptyList()
@@ -269,13 +267,14 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
             loadedArtist.takeIf { artist.id == it?.id } ?: api.LoadArtist.loadArtist(artist.id)
                 .getOrThrow()
 
+        val locale = api.dataLocale
         return result.layouts?.map {
             val title = it.title?.get(Locale.parse(ENGLISH))
             val single = title == SINGLES
             Shelf.Lists.Items(
-                id = it.title?.get(Locale.parse(language))?.hashCode()?.toString() ?: "Unknown",
-                title = it.title?.get(Locale.parse(language)) ?: "Unknown",
-                subtitle = it.subtitle?.get(Locale.parse(language)),
+                id = it.title?.get(locale)?.hashCode()?.toString() ?: "Unknown",
+                title = it.title?.get(locale) ?: "Unknown",
+                subtitle = it.subtitle?.get(locale),
                 list = it.items?.mapNotNull { item ->
                     item.toEchoMediaItem(single, thumbnailQuality)
                 } ?: emptyList(),
@@ -325,7 +324,7 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
                 }
             } else {
                 songRelatedEndpoint.loadFromPlaylist(cont).getOrNull()?.map { 
-                    it.toShelf(api, language, thumbnailQuality) 
+                    it.toShelf(api, thumbnailQuality) 
                 } ?: emptyList()
             }
         } catch (e: Exception) {
