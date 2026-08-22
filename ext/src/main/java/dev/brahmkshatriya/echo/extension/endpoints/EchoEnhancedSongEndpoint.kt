@@ -103,6 +103,25 @@ class EchoEnhancedSongEndpoint(
     }
     
     /**
+     * Pick the first artist list where EVERY entry has a real (non-blank, non-"Unknown") name.
+     * ytm-kt 0.6.x returns artists with a channel id but NULL name; Convertors renders
+     * those as the literal string "Unknown", so treat that as missing.
+     */
+    companion object {
+        fun isValidArtistName(artist: dev.brahmkshatriya.echo.common.models.Artist): Boolean =
+            !artist.name.isNullOrBlank() && !artist.name.equals("unknown", ignoreCase = true)
+
+        fun pickBestArtists(vararg candidates: List<dev.brahmkshatriya.echo.common.models.Artist>?): List<dev.brahmkshatriya.echo.common.models.Artist> {
+            for (candidate in candidates) {
+                if (!candidate.isNullOrEmpty() && candidate.all { isValidArtistName(it) }) {
+                    return candidate
+                }
+            }
+            return candidates.filterNotNull().firstOrNull { it.isNotEmpty() } ?: emptyList()
+        }
+    }
+
+    /**
      * Merge strategy when ytm-kt track is available (preferred source).
      * Falls back to legacy/original track for missing fields.
      */
@@ -126,11 +145,10 @@ class EchoEnhancedSongEndpoint(
             // Prefer ytm album, fallback to legacy
             album = ytmTrack.album ?: legacyTrack?.album,
             
-            // Prefer ytm artists if non-empty, fallback to legacy then original
-            artists = if (ytmTrack.artists.isNotEmpty()) 
-                ytmTrack.artists 
-            else 
-                legacyTrack?.artists ?: fallbackTrack.artists,
+            // Prefer ytm artists if they have real names, fallback to legacy then original.
+            // (ytm-kt 0.6.x returns artists with a channel id but NULL name; Convertors
+            // renders those as the literal string "Unknown", so treat that as missing too)
+            artists = pickBestArtists(ytmTrack.artists, legacyTrack?.artists, fallbackTrack.artists),
             
             // Add streamables - THIS WAS MISSING!
             streamables = streamables,

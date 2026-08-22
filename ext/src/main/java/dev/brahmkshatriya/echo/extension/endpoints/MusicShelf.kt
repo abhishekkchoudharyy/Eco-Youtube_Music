@@ -18,6 +18,7 @@ import dev.toastbits.ytmkt.model.internal.YoutubeiHeader
 import dev.toastbits.ytmkt.model.internal.YoutubeiHeaderContainer
 import dev.toastbits.ytmkt.radio.YoutubeiNextResponse
 import dev.toastbits.ytmkt.uistrings.parseYoutubeDurationString
+import sh.syk.kmpresources.library.model.Locale
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -52,7 +53,7 @@ data class MusicTwoRowItemRenderer(
             }
 
             if (hostItem is YtmSong) {
-                val songType: YtmSong.Type? = api.item_cache.getSong(
+                val songType: YtmSong.Type? = api.itemCache.getSong(
                     hostItem.id,
                     setOf(MediaItemCache.SongKey.TYPE)
                 )?.type
@@ -187,7 +188,7 @@ data class MusicTwoColumnItemRenderer(
                 ThumbnailProvider.fromThumbnails(it)
             },
             duration = subtitle?.runs?.find { it.isTime() }?.text?.let {
-                parseYoutubeDurationString(it, hl)
+                parseYoutubeDurationString(it, Locale.parse(hl))?.inWholeMilliseconds
             },
             type = YtmSong.Type.SONG,
             is_explicit = menu?.menuRenderer?.title?.musicMenuTitleRenderer?.endButtons?.firstOrNull()?.likeButtonRenderer?.likeStatus == "LIKE"

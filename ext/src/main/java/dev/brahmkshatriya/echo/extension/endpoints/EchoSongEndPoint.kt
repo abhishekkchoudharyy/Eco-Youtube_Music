@@ -63,7 +63,9 @@ open class EchoSongEndPoint(override val api: YoutubeiApi) : ApiEndpoint() {
             tabs.getOrNull(2)?.tabRenderer?.endpoint?.browseEndpoint?.browseId
 
         val video: YoutubeiNextResponse.PlaylistPanelVideoRenderer =
-            tabs[0].tabRenderer.content!!.musicQueueRenderer.content!!.playlistPanelRenderer.contents.first().playlistPanelVideoRenderer!!
+            tabs.firstNotNullOfOrNull { it.tabRenderer.content?.musicQueueRenderer?.content?.playlistPanelRenderer?.contents }
+                ?.firstNotNullOfOrNull { item -> runCatching { item.getRenderer() }.getOrNull() }
+                ?: throw Exception("No playlistPanelVideoRenderer or playlistPanelVideoWrapperRenderer in next response")
 
         val title: String = video.title.first_text
         val isLiked =
@@ -71,7 +73,7 @@ open class EchoSongEndPoint(override val api: YoutubeiApi) : ApiEndpoint() {
 
         val artists: List<YtmArtist> = video.getArtists().getOrThrow() ?: emptyList()
         val album = video.getAlbum()
-        val duration = parseYoutubeDurationString(video.lengthText.first_text, api.data_language)
+        val duration = parseYoutubeDurationString(video.lengthText.first_text, api.dataLocale)?.inWholeMilliseconds
 
         val cover = ThumbnailProvider.fromThumbnails(video.thumbnail.thumbnails)
             ?.getThumbnailUrl(ThumbnailProvider.Quality.HIGH)?.toImageHolder()
@@ -216,7 +218,7 @@ data class YoutubeiNextResponse(
     class TabRendererEndpoint(val browseEndpoint: BrowseEndpoint)
 
     @Serializable
-    class Content(val musicQueueRenderer: MusicQueueRenderer)
+    class Content(val musicQueueRenderer: MusicQueueRenderer? = null)
 
     @Serializable
     class MusicQueueRenderer(
@@ -259,7 +261,7 @@ data class YoutubeiNextResponse(
         val playlistPanelVideoRenderer: PlaylistPanelVideoRenderer?,
         val playlistPanelVideoWrapperRenderer: PlaylistPanelVideoWrapperRenderer?
     ) {
-        private fun getRenderer(): PlaylistPanelVideoRenderer {
+        fun getRenderer(): PlaylistPanelVideoRenderer {
             if (playlistPanelVideoRenderer != null) {
                 return playlistPanelVideoRenderer
             }

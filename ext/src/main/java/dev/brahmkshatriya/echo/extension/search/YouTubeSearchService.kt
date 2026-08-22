@@ -1,5 +1,6 @@
 package dev.brahmkshatriya.echo.extension.search
 
+import sh.syk.kmpresources.library.model.Locale
 import dev.brahmkshatriya.echo.common.models.Album
 import dev.brahmkshatriya.echo.common.models.EchoMediaItem
 import dev.brahmkshatriya.echo.common.models.Playlist
@@ -73,7 +74,7 @@ class YouTubeSearchService(
         val shelves = mutableListOf<Shelf>()
         
         for ((layout, _) in searchResults.categories) {
-            val title = layout.title?.getString("en") ?: "Results"
+            val title = layout.title?.get(Locale.parse("en")) ?: "Results"
             val items = layout.items
             
             if (items.isEmpty()) continue

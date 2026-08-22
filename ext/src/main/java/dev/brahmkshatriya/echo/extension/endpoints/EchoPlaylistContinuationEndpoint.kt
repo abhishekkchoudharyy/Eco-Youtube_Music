@@ -26,7 +26,7 @@ class EchoPlaylistContinuationEndpoint(override val api: YoutubeiApi) : ApiEndpo
 
         val cont = parsed.lastOrNull()
             ?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token
-        val items = parsed.mapNotNull { it.toMediaItemData(api.data_language, api) }
+        val items = parsed.mapNotNull { it.toMediaItemData(api.dataLocale.language, api) }
 
         Triple(
             items.map { it.first }.filterIsInstance<YtmSong>(),

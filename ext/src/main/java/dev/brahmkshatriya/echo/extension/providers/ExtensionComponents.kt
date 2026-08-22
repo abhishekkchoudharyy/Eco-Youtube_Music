@@ -13,6 +13,7 @@ import dev.brahmkshatriya.echo.extension.providers.playback.TrackLoader
 import dev.brahmkshatriya.echo.extension.providers.playlists.PlaylistManager
 import dev.brahmkshatriya.echo.extension.providers.social.FollowManager
 import dev.brahmkshatriya.echo.extension.providers.social.LikeManager
+import dev.brahmkshatriya.echo.extension.providers.social.SaveManager
 import dev.brahmkshatriya.echo.extension.providers.social.ShareManager
 import dev.brahmkshatriya.echo.extension.search.YouTubeSearchService
 import dev.brahmkshatriya.echo.extension.streaming.YouTubeStreamResolver
@@ -96,6 +97,10 @@ class ExtensionComponents(
 
     val playlistManager by lazy {
         PlaylistManager(authManager, editorEndpoint, thumbnailQuality)
+    }
+
+    val saveManager by lazy {
+        SaveManager(authManager, playlistEndpoint, thumbnailQuality)
     }
 
     val likeManager by lazy {

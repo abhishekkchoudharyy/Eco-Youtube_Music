@@ -17,8 +17,8 @@ class EchoArtistMoreEndpoint(override val api: YoutubeiApi) : ApiEndpoint() {
             endpointPath("browse")
             addApiHeadersWithAuthenticated()
             postWithBody(YoutubeiPostBody.MOBILE.getPostBody(api)) {
-                put("browseId", param.browse_id)
-                put("params", param.browse_params)
+                put("browseId", param.browseId)
+                put("params", param.browseParams)
             }
         }
         val data: YoutubeiBrowseResponse = response.body()

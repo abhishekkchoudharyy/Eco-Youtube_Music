@@ -28,7 +28,7 @@ open class EchoSongFeedEndpoint(override val api: YoutubeiApi) : ApiEndpoint() {
         continuation: String? = null,
         browseId: String? = null
     ) = runCatching {
-        val hl: String = api.data_language
+        val hl: String = api.dataLocale.language
 
         suspend fun performRequest(ctoken: String?): YoutubeiBrowseResponse {
             val response: HttpResponse = api.client.request {
@@ -40,8 +40,11 @@ open class EchoSongFeedEndpoint(override val api: YoutubeiApi) : ApiEndpoint() {
                     url.parameters.append("type", "next")
                 }
 
-                addApiHeadersWithAuthenticated()
+                // NOTE: apply the whitelisted plain headers FIRST — in ytm-kt 0.6.x
+                // addApiHeadersWithoutAuthentication(include) strips any header not in
+                // `include`, which would remove cookie/authorization added earlier.
                 addApiHeadersWithoutAuthentication(PLAIN_HEADERS)
+                addApiHeadersWithAuthenticated()
                 postWithBody {
                     if (params != null) {
                         put("params", params)
@@ -90,9 +93,9 @@ open class EchoSongFeedEndpoint(override val api: YoutubeiApi) : ApiEndpoint() {
         fun processRows(
             rows: List<YoutubeiBrowseResponse.YoutubeiShelf>, api: YoutubeiApi
         ): List<MediaItemLayout> {
-            val hl = api.data_language
+            val hl = api.dataLocale.language
             fun String.createUiString() =
-                YoutubeUiString.Type.HOME_FEED.createFromKey(this, api.data_language)
+                YoutubeUiString.Type.HOME_FEED.createFromKey(this, api.dataLocale)
 
             return rows.mapNotNull { row ->
                 val items = row.getMediaItems(hl, api) ?: return@mapNotNull null

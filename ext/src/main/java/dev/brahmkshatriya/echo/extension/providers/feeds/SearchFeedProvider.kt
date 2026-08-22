@@ -1,5 +1,6 @@
 package dev.brahmkshatriya.echo.extension.providers.feeds
 
+import sh.syk.kmpresources.library.model.Locale
 import dev.brahmkshatriya.echo.common.helpers.Page
 import dev.brahmkshatriya.echo.common.helpers.PagedData
 import dev.brahmkshatriya.echo.common.models.Feed
@@ -57,11 +58,11 @@ class SearchFeedProvider(
         val filterChips = result.filter_chips?.map {
             Tab(
                 id = it.params,
-                title = it.text.getString(YoutubeExtension.ENGLISH),
+                title = it.text.get(Locale.parse(YoutubeExtension.ENGLISH)),
                 isSort = false,
                 extras = mapOf(
                     "browseId" to it.params,
-                    "category" to it.text.getString(YoutubeExtension.ENGLISH),
+                    "category" to it.text.get(Locale.parse(YoutubeExtension.ENGLISH)),
                     "isFilterChip" to "true",
                     "isHomeFeedTab" to "true"
                 )
@@ -78,7 +79,7 @@ class SearchFeedProvider(
                     ).getOrThrow()
 
                     val data = browseResult.layouts.map { itemLayout ->
-                        itemLayout.toShelf(api, YoutubeExtension.SINGLES, thumbnailQuality)
+                        itemLayout.toShelf(api, thumbnailQuality)
                     }
 
                     Page(data, browseResult.ctoken)

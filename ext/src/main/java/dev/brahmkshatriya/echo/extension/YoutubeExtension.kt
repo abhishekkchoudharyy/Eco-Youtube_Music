@@ -15,6 +15,7 @@ import dev.brahmkshatriya.echo.common.clients.PlaylistEditClient
 import dev.brahmkshatriya.echo.common.clients.QuickSearchClient
 import dev.brahmkshatriya.echo.common.clients.RadioClient
 import dev.brahmkshatriya.echo.common.clients.SearchFeedClient
+import dev.brahmkshatriya.echo.common.clients.SaveClient
 import dev.brahmkshatriya.echo.common.clients.ShareClient
 import dev.brahmkshatriya.echo.common.clients.TrackClient
 import dev.brahmkshatriya.echo.common.clients.TrackerClient
@@ -56,6 +57,7 @@ import dev.brahmkshatriya.echo.extension.endpoints.GoogleAccountResponse
 import dev.brahmkshatriya.echo.extension.utils.CookieParser
 import dev.brahmkshatriya.echo.extension.providers.ExtensionComponents
 import dev.toastbits.ytmkt.impl.youtubei.YoutubeiApi
+import sh.syk.kmpresources.library.model.Locale
 import dev.toastbits.ytmkt.impl.youtubei.YoutubeiAuthenticationState
 import dev.toastbits.ytmkt.model.external.PlaylistEditor
 import dev.toastbits.ytmkt.model.external.SongLikedStatus
@@ -88,7 +90,8 @@ private fun createShelfPagedDataFromMediaItems(mediaItems: PagedData<EchoMediaIt
 class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFeedClient,
     RadioClient, AlbumClient, ArtistClient, PlaylistClient, LoginClient.WebView,
     TrackerClient, TrackerMarkClient, LibraryFeedClient, ShareClient, LyricsClient, FollowClient,
-    LikeClient, PlaylistEditClient, LyricsSearchClient, QuickSearchClient {
+    LikeClient, PlaylistEditClient, LyricsSearchClient, QuickSearchClient,
+    SaveClient {
 
     override suspend fun getSettingItems(): List<Setting> = listOf(
         SettingSwitch(
@@ -120,11 +123,9 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
     }
 
     val api = YoutubeiApi(
-        data_language = ENGLISH
+        dataLocale = Locale.parse(ENGLISH)
     )
 
-    private val language = ENGLISH
-    
     private lateinit var components: ExtensionComponents
     
     private val artistEndPoint by lazy { components.artistEndpoint }
@@ -154,7 +155,7 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
                     params = tab?.id, continuation = continuation
                 ).getOrThrow()
                 val data = result.layouts.map { itemLayout ->
-                    itemLayout.toShelf(api, SINGLES, thumbnailQuality)
+                    itemLayout.toShelf(api, thumbnailQuality)
                 }
                 Page(data, result.ctoken)
             }
@@ -176,7 +177,7 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
         return if (relatedId != null) {
             try {
                 songFeedEndPoint.getSongFeed(browseId = relatedId).getOrThrow().layouts.map {
-                    it.toShelf(api, SINGLES, thumbnailQuality)
+                    it.toShelf(api, thumbnailQuality)
                 }
             } catch (e: Exception) {
                 emptyList()
@@ -266,13 +267,14 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
             loadedArtist.takeIf { artist.id == it?.id } ?: api.LoadArtist.loadArtist(artist.id)
                 .getOrThrow()
 
+        val locale = api.dataLocale
         return result.layouts?.map {
-            val title = it.title?.getString(ENGLISH)
+            val title = it.title?.get(Locale.parse(ENGLISH))
             val single = title == SINGLES
             Shelf.Lists.Items(
-                id = it.title?.getString(language)?.hashCode()?.toString() ?: "Unknown",
-                title = it.title?.getString(language) ?: "Unknown",
-                subtitle = it.subtitle?.getString(language),
+                id = it.title?.get(locale)?.hashCode()?.toString() ?: "Unknown",
+                title = it.title?.get(locale) ?: "Unknown",
+                subtitle = it.subtitle?.get(locale),
                 list = it.items?.mapNotNull { item ->
                     item.toEchoMediaItem(single, thumbnailQuality)
                 } ?: emptyList(),
@@ -322,7 +324,7 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
                 }
             } else {
                 songRelatedEndpoint.loadFromPlaylist(cont).getOrNull()?.map { 
-                    it.toShelf(api, language, thumbnailQuality) 
+                    it.toShelf(api, thumbnailQuality) 
                 } ?: emptyList()
             }
         } catch (e: Exception) {
@@ -373,7 +375,7 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
 
     override fun setLoginUser(user: User?) {
         if (user == null) {
-            api.user_auth_state = null
+            api.userAuthState = null
         } else {
             val cookie = user.extras["cookie"] ?: throw Exception("No cookie")
             val auth = user.extras["auth"] ?: throw Exception("No auth")
@@ -384,18 +386,18 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
             }
             val authenticationState =
                 dev.toastbits.ytmkt.impl.youtubei.YoutubeiAuthenticationState(api, headers, user.id.ifEmpty { null })
-            api.user_auth_state = authenticationState
+            api.userAuthState = authenticationState
         }
-        api.visitor_id = runCatching { kotlinx.coroutines.runBlocking { components.visitorEndpoint.getVisitorId() } }.getOrNull()
+        api.visitorId = runCatching { kotlinx.coroutines.runBlocking { components.visitorEndpoint.getVisitorId() } }.getOrNull()
     }
 
     override suspend fun getCurrentUser(): User? {
-        val headers = api.user_auth_state?.headers ?: return null
+        val auth_headers = api.userAuthState?.headers ?: return null
         return runCatching {
             val response = api.client.request("https://music.youtube.com/getAccountSwitcherEndpoint") {
                 headers {
                     append("referer", "https://music.youtube.com/")
-                    appendAll(headers)
+                    appendAll(auth_headers)
                 }
             }
             
@@ -425,7 +427,7 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
     override suspend fun getMarkAsPlayedDuration(details: TrackDetails): Long? = 30000L
 
     override suspend fun onMarkAsPlayed(details: TrackDetails) {
-        val authState = api.user_auth_state ?: return
+        val authState = api.userAuthState ?: return
         val endpoint = authState.MarkSongAsWatched ?: return
         try {
             val result = endpoint.markSongAsWatched(details.track.id)
@@ -468,6 +470,14 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
 
     override suspend fun likeItem(item: EchoMediaItem, shouldLike: Boolean) {
         components.likeManager.setLiked(item, shouldLike)
+    }
+
+    override suspend fun saveToLibrary(item: EchoMediaItem, shouldSave: Boolean) {
+        components.saveManager.saveToLibrary(item, shouldSave)
+    }
+
+    override suspend fun isItemSaved(item: EchoMediaItem): Boolean {
+        return runCatching { components.saveManager.isSaved(item) }.getOrNull() ?: false
     }
 
     private suspend fun likeTrack(track: Track, isLiked: Boolean) {
@@ -525,11 +535,7 @@ class YoutubeExtension : ExtensionClient, HomeFeedClient, TrackClient, SearchFee
     override suspend fun onShare(item: EchoMediaItem) = components.shareManager.getShareUrl(item)
     
     override suspend fun radio(item: EchoMediaItem, context: EchoMediaItem?): Radio {
-        val mediaItem = when (item) {
-            is User -> ModelTypeHelper.userToArtist(item)
-            else -> item
-        }
-        return components.radioGenerator.generateRadio(mediaItem, context)
+        return components.radioGenerator.generateRadio(item, context)
     }
     
     override suspend fun loadRadio(radio: Radio): Radio = radio
