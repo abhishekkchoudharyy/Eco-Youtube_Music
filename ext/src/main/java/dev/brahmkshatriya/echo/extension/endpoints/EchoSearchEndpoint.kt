@@ -1,5 +1,6 @@
 package dev.brahmkshatriya.echo.extension.endpoints
 
+import sh.syk.kmpresources.library.model.Locale
 import dev.toastbits.ytmkt.endpoint.SearchFilter
 import dev.toastbits.ytmkt.endpoint.SearchResults
 import dev.toastbits.ytmkt.endpoint.SearchType
@@ -32,7 +33,7 @@ class EchoSearchEndpoint(override val api: YoutubeiApi) : ApiEndpoint() {
         auth: Boolean = true,
         nonMusic: Boolean = false
     ): Result<SearchResults> = runCatching {
-        val hl: String = api.data_language
+        val hl: String = api.dataLocale.language
         val response: HttpResponse = api.client.request {
             endpointPath("search", non_music_api = nonMusic)
             if (auth) addApiHeadersWithAuthenticated(non_music_api = nonMusic)
@@ -81,7 +82,7 @@ class EchoSearchEndpoint(override val api: YoutubeiApi) : ApiEndpoint() {
                         Pair(
                             MediaItemLayout(
                                 mutableListOf(card.getMediaItem()),
-                                YoutubeUiString.Type.SEARCH_PAGE.createFromKey(key, hl),
+                                YoutubeUiString.Type.SEARCH_PAGE.createFromKey(key, Locale.parse(hl)),
                                 null,
                                 type = ItemLayoutType.CARD
                             ),
@@ -105,7 +106,7 @@ class EchoSearchEndpoint(override val api: YoutubeiApi) : ApiEndpoint() {
             val shelf: YTMGetSongFeedEndpoint.MusicShelfRenderer =
                 category.musicShelfRenderer ?: continue
             val items =
-                shelf.contents?.mapNotNull { it.toMediaItemData(hl, api)?.first }?.toMutableList()
+                shelf.contents?.mapNotNull { it.toMediaItemAndPlaylistSetVideoId(Locale.parse(hl), api)?.first }?.toMutableList()
                     ?: continue
             val searchParams =
                 if (index == 0) null else chips.getOrNull(index - 1)?.chipCloudChipRenderer?.navigationEndpoint?.searchEndpoint?.params
@@ -115,7 +116,7 @@ class EchoSearchEndpoint(override val api: YoutubeiApi) : ApiEndpoint() {
                 categoryLayouts.add(Pair(
                     MediaItemLayout(
                         items,
-                        YoutubeUiString.Type.SEARCH_PAGE.createFromKey(title, hl),
+                        YoutubeUiString.Type.SEARCH_PAGE.createFromKey(title, Locale.parse(hl)),
                         null
                     ),
                     searchParams?.let {

@@ -1,5 +1,6 @@
 package dev.brahmkshatriya.echo.extension.endpoints
 
+import sh.syk.kmpresources.library.model.Locale
 import dev.brahmkshatriya.echo.extension.endpoints.EchoSongFeedEndpoint.Companion.processRows
 import dev.toastbits.ytmkt.impl.youtubei.YoutubeiApi
 import dev.toastbits.ytmkt.impl.youtubei.YoutubeiPostBody
@@ -19,7 +20,7 @@ import kotlinx.serialization.json.put
 class EchoArtistEndpoint(override val api: YoutubeiApi) : ApiEndpoint() {
 
     suspend fun loadArtist(id: String): YtmArtist {
-        val hl: String = api.data_language
+        val hl: String = api.dataLocale.language
         val response: HttpResponse = api.client.request {
             endpointPath("browse")
             addApiHeadersWithAuthenticated()
@@ -51,13 +52,13 @@ class EchoArtistEndpoint(override val api: YoutubeiApi) : ApiEndpoint() {
                 builder.subscribe_channel_id = subscribeButton.channelId
                 builder.subscriber_count = parseYoutubeSubscribersString(
                     subscribeButton.subscriberCountText.first_text,
-                    hl
+                    Locale.parse(hl)
                 )
                 builder.subscribed = subscribeButton.subscribed
             }
             headerRenderer.playButton?.buttonRenderer?.let {
                 if (it.icon?.iconType == "MUSIC_SHUFFLE") {
-                    builder.shuffle_playlist_id = it.navigationEndpoint.watchEndpoint?.playlistId
+                    builder.shuffle_playlist_id = it.navigationEndpoint?.watchEndpoint?.playlistId
                 }
             }
         }

@@ -18,16 +18,16 @@ class HomeFeedProvider(
     private val visitorEndpoint: EchoVisitorEndpoint
 ) {
     suspend fun loadHomeFeed(thumbnailQuality: ThumbnailProvider.Quality): Feed<Shelf> {
-        if (api.visitor_id == null) {
+        if (api.visitorId == null) {
             try {
                 val visitorId = visitorEndpoint.getVisitorId()
-                api.visitor_id = visitorId
+                api.visitorId = visitorId
                 println("HomeFeed Initialized visitor_id: $visitorId")
             } catch (e: Exception) {
                 println("HomeFeed Failed to initialize visitor_id: ${e.message}")
             }
         } else {
-            println("HomeFeed Using existing visitor_id: ${api.visitor_id}")
+            println("HomeFeed Using existing visitor_id: ${api.visitorId}")
         }
         
         val tabs = listOf<dev.brahmkshatriya.echo.common.models.Tab>()

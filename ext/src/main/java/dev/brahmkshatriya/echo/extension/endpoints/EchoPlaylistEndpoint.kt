@@ -68,10 +68,29 @@ class EchoPlaylistEndpoint(override val api: YoutubeiApi) : ApiEndpoint() {
             }
         }
         val (playlist, relation) =
-            parsePlaylistResponse(cleanId(id), res, api.data_language, api)
+            parsePlaylistResponse(cleanId(id), res, api.dataLocale.language, api)
+
+        // ytm-kt 0.6.x regression: album-track rows can produce YtmArtists with a real
+        // channel id but a NULL name (menu fallback runs before the text fallback).
+        // Fill nameless artist names from the playlist/album header artists.
+        val headerArtists = playlist.artists.orEmpty().filter { !it.name.isNullOrBlank() }
+        fun fixArtistNames(song: YtmSong): YtmSong {
+            val artists = song.artists ?: return song
+            if (artists.all { !it.name.isNullOrBlank() }) return song
+            return song.copy(
+                artists = artists.map { artist ->
+                    if (!artist.name.isNullOrBlank()) artist
+                    else artist.copy(
+                        name = headerArtists.firstOrNull { it.id == artist.id }?.name
+                            ?: headerArtists.singleOrNull()?.name
+                    )
+                }
+            )
+        }
+
         val songs = PagedData.Continuous { token ->
             if (token == null) {
-                val ytmSongs = playlist.items ?: emptyList()
+                val ytmSongs = (playlist.items ?: emptyList()).map { fixArtistNames(it) }
                 val sets = playlist.item_set_ids!!
                 Page(
                     ytmSongs.mapIndexed { index, it -> it.toTrack(quality, sets[index]) },

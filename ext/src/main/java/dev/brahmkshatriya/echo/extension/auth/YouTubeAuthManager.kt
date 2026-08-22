@@ -31,9 +31,9 @@ class YouTubeAuthManager(
     )
 
     suspend fun ensureVisitorId(): Result<String> = runCatching {
-        api.visitor_id ?: run {
+        api.visitorId ?: run {
             val visitorId = visitorEndpoint.getVisitorId()
-            api.visitor_id = visitorId
+            api.visitorId = visitorId
             visitorId
         }
     }
@@ -50,7 +50,7 @@ class YouTubeAuthManager(
         }
 
         authState = YoutubeiAuthenticationState(api, authHeaders, userId.ifEmpty { null })
-        api.user_auth_state = authState
+        api.userAuthState = authState
 
         ensureVisitorId().getOrNull()
 
@@ -60,7 +60,7 @@ class YouTubeAuthManager(
     fun logout() {
         authState = null
         pendingCredentials = null
-        api.user_auth_state = null
+        api.userAuthState = null
         println("Logged out and cleared credentials")
     }
 
@@ -100,7 +100,7 @@ class YouTubeAuthManager(
     }
 
     suspend fun requireAuth(): YoutubeiAuthenticationState {
-        api.user_auth_state?.let { return it }
+        api.userAuthState?.let { return it }
         
         authState?.let { return it }
         
@@ -110,12 +110,12 @@ class YouTubeAuthManager(
                 .getOrThrow()
                 .let { 
                     pendingCredentials = null 
-                    authState ?: api.user_auth_state ?: throw ClientException.LoginRequired()
+                    authState ?: api.userAuthState ?: throw ClientException.LoginRequired()
                 }
         }
         
         throw ClientException.LoginRequired()
     }
 
-    fun isAuthenticated(): Boolean = api.user_auth_state != null || authState != null
+    fun isAuthenticated(): Boolean = api.userAuthState != null || authState != null
 }

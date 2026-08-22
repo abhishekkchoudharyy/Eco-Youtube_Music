@@ -260,12 +260,12 @@ class YouTubeStreamResolver(
             println("Falling back to YouTube Music API for video ID: $videoId")
             
             try {
-                if (api.visitor_id == null) {
+                if (api.visitorId == null) {
                     println("Visitor ID is null, trying to get a new one...")
-                    api.visitor_id = visitorEndpoint.getVisitorId()
-                    println("Successfully set visitor ID: ${api.visitor_id}")
+                    api.visitorId = visitorEndpoint.getVisitorId()
+                    println("Successfully set visitor ID: ${api.visitorId}")
                 } else {
-                    println("Using existing visitor ID: ${api.visitor_id}")
+                    println("Using existing visitor ID: ${api.visitorId}")
                 }
             } catch (e: Exception) {
                 println("Exception ensuring visitor ID: ${e.message}")

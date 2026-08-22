@@ -103,11 +103,11 @@ tasks {
     
     // Enable test tasks now that we have proper implementations
     test {
-        enabled = false
+        enabled = true
     }
-    
+
     compileTestKotlin {
-        enabled = false
+        enabled = true
     }
 }
 
